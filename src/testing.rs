@@ -9,7 +9,6 @@ use indicatif::ProgressStyle;
 use reqwest::Client;
 use reqwest::Result;
 use std::collections::HashMap;
-use std::os::unix::process::CommandExt;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;

@@ -711,6 +711,7 @@ dependencies = [
  "indicatif",
  "pyo3",
  "reqwest",
+ "ring",
  "serde",
  "serde_derive",
  "serde_json",

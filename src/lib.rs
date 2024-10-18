@@ -12,7 +12,7 @@ mod testing;
 use robloxian::{FriendsListJson, IdNameHash, IoThings, JointJson, Robloxian};
 
 #[pyfunction]
-fn run_this_py(id: u64) -> PyResult<()> {
+fn get_friends(id: u64) -> PyResult<()> {
     tokio::runtime::Runtime::new().unwrap().block_on(async {
         let mut load_community = robloxian::FriendsListJson::load().unwrap();
         let mut name_map = IdNameHash::load().unwrap();
@@ -64,6 +64,6 @@ fn run_this_py(id: u64) -> PyResult<()> {
 
 #[pymodule]
 fn rblx_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(run_this_py, m)?)?;
+    m.add_function(wrap_pyfunction!(get_friends, m)?)?;
     Ok(())
 }
