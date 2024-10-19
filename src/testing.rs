@@ -87,7 +87,18 @@ pub async fn get_fof(
         .collect();
 
     for task in tasks {
-        task.await.unwrap()?;
+        match task.await {
+            Ok(result) => match result {
+                Ok(value) => {}
+
+                Err(e) => {
+                    eprintln!("Error in get_friends: {:?}", e)
+                }
+            },
+            Err(e) => {
+                eprintln!("Join Error {:?}", e)
+            }
+        }
     }
 
     community.extend(community_arc.lock().await.drain());
