@@ -2,19 +2,22 @@ use crate::proxied_reqwest::create_client;
 use crate::robloxian;
 use crate::robloxian::FriendsList;
 use crate::robloxian::IoThings;
+use crate::robloxian::Robloxian;
 use futures::future::join_all;
+use futures::future::ok;
 use indicatif;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use reqwest::Client;
 use reqwest::Result;
+use robloxian::IdNameHash;
+use robloxian::JointJson;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
-
 pub async fn get_friends(
     id: &u64,
     community: Arc<Mutex<HashMap<u64, Vec<u64>>>>,
@@ -104,5 +107,53 @@ pub async fn get_fof(
     community.extend(community_arc.lock().await.drain());
     name_map.extend(name_map_arc.lock().await.drain());
     pb_arc.finish_with_message("All tasks completed");
+    Ok(())
+}
+
+pub async fn get_friends_interface(id: u64) -> reqwest::Result<()> {
+    let mut load_community = robloxian::FriendsListJson::load().unwrap();
+    let mut name_map = IdNameHash::load().unwrap();
+
+    if let Some(current_id) = load_community.user_friends.clone().get_mut(&id) {
+        current_id.retain(|key| !load_community.user_friends.contains_key(key));
+        if current_id.len() == 0 {
+            println!("Robloxian already in the system");
+        } else {
+            println!(
+                "Found {:?}, grabbing their friends' friends",
+                name_map.names.get_mut(&id)
+            );
+            get_fof(
+                current_id.to_owned(),
+                &mut load_community.user_friends,
+                &mut name_map.names,
+            )
+            .await
+            .unwrap();
+            let json_joint = JointJson::new(name_map.names, load_community.user_friends);
+            json_joint.await.write().unwrap();
+        }
+    } else {
+        println!("User not found, will grab their info, and their friends' info");
+        robloxian::Robloxian::create_user(id, &mut name_map).await;
+        robloxian::Robloxian::get_friends(
+            &id,
+            &mut load_community.user_friends,
+            &mut name_map.names,
+            create_client().await.unwrap(),
+        )
+        .await
+        .unwrap();
+        let ids = load_community.user_friends.get(&id).unwrap();
+        get_fof(
+            ids.to_owned(),
+            &mut load_community.user_friends,
+            &mut name_map.names,
+        )
+        .await
+        .unwrap();
+        let json_joint = JointJson::new(name_map.names, load_community.user_friends);
+        json_joint.await.write().unwrap();
+    }
     Ok(())
 }

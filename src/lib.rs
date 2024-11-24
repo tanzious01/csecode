@@ -10,7 +10,6 @@ mod proxied_reqwest;
 mod robloxian;
 mod testing;
 use pyo3::types::PyList;
-use rayon::prelude::*;
 use robloxian::{FriendsListJson, IdNameHash, IoThings, JointJson, Robloxian};
 #[pyfunction]
 fn get_friends(id: u64) -> PyResult<()> {
@@ -63,54 +62,8 @@ fn get_friends(id: u64) -> PyResult<()> {
     })
 }
 
-#[pyfunction]
-fn get_friends_vec(ids: Vec<u64>) -> PyResult<()> {
-    tokio::runtime::Runtime::new().unwrap().block_on(async {
-        let tasks: Vec<_> = ids
-            .into_iter()
-            .map(|id| {
-                tokio::spawn(async move {
-                    testing::get_friends_interface(id.to_owned()).await.unwrap();
-                })
-            })
-            .collect();
-        for task in tasks {
-            task.await;
-        }
-        Ok(())
-    })
-}
-
-#[pyfunction]
-pub fn full_community() -> PyResult<Vec<(u64, u64)>> {
-    let hashmap = robloxian::FriendsListJson::load().unwrap().user_friends;
-    let my_vec: Vec<(u64, u64)> = hashmap
-        .par_iter()
-        .flat_map(|(source, target)| target.par_iter().map(move |targ| (*source, *targ)))
-        .collect();
-    Ok(my_vec)
-}
-
-#[pyfunction]
-pub fn ego_community(id: u64) -> PyResult<Vec<(u64, u64)>> {
-    tokio::runtime::Runtime::new().unwrap().block_on(async {
-        let hashmap = robloxian::FriendsListJson::load().unwrap().user_friends;
-
-        if let Some(user) = hashmap.get(&id) {
-            let my_vec: Vec<(u64, u64)> = user.par_iter().map(|&target| (id, target)).collect();
-            return Ok(my_vec);
-        } else {
-            println!("User with {} not found", id);
-            return Ok(Vec::new());
-        };
-    })
-}
-
 #[pymodule]
 fn rblx_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_friends, m)?)?;
-    m.add_function(wrap_pyfunction!(get_friends_vec, m)?)?;
-    m.add_function(wrap_pyfunction!(full_community, m)?);
-    m.add_function(wrap_pyfunction!(ego_community, m)?);
     Ok(())
 }
